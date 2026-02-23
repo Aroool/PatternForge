@@ -1,65 +1,95 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+
+type AnalyzeResult = {
+  pattern: string;
+  confidence: number;
+  reasons: string[];
+};
 
 export default function Home() {
+  const [text, setText] = useState("");
+  const [result, setResult] = useState<AnalyzeResult | null>(null);
+
+  const onAnalyze = () => {
+    // Dummy result for now (backend comes next)
+    const dummy: AnalyzeResult = {
+      pattern: "Sliding Window",
+      confidence: 78,
+      reasons: [
+        "The problem asks about a subarray/substring (contiguous segment).",
+        "It asks for longest/shortest/best length, which is common with windows.",
+        "Large constraints usually mean we need an O(n) scan with two pointers.",
+      ],
+    };
+    setResult(dummy);
+  };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <main className="min-h-screen">
+      <div className="mx-auto max-w-4xl p-6 md:p-10 space-y-6">
+        <header className="space-y-2">
+          <h1 className="text-3xl md:text-4xl font-bold">PatternForge</h1>
+          <p className="text-sm md:text-base text-neutral-600">
+            Paste a coding question. Get the likely DSA pattern + strong reasons.
           </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+        </header>
+
+        <section className="space-y-3">
+          <label className="text-sm font-medium">Problem</label>
+          <textarea
+            className="w-full min-h-[180px] rounded-xl border p-4 outline-none focus:ring-2 focus:ring-neutral-300"
+            placeholder="Paste a LeetCode-style question here..."
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+          />
+          <div className="flex gap-3">
+            <button
+              onClick={onAnalyze}
+              disabled={text.trim().length === 0}
+              className="rounded-xl px-5 py-2.5 bg-black text-white disabled:opacity-40"
+            >
+              Analyze
+            </button>
+            <button
+              onClick={() => {
+                setText("");
+                setResult(null);
+              }}
+              className="rounded-xl px-5 py-2.5 border"
+            >
+              Clear
+            </button>
+          </div>
+        </section>
+
+        {result && (
+          <section className="rounded-2xl border p-5 md:p-6 space-y-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="text-lg font-semibold">
+                Pattern: <span className="font-bold">{result.pattern}</span>
+              </div>
+              <div className="text-sm rounded-full border px-3 py-1">
+                Confidence: {result.confidence}%
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-sm font-medium">Why this pattern?</div>
+              <ul className="list-disc pl-5 space-y-1 text-sm text-neutral-700">
+                {result.reasons.map((r, i) => (
+                  <li key={i}>{r}</li>
+                ))}
+              </ul>
+            </div>
+          </section>
+        )}
+
+        <footer className="text-xs text-neutral-500 pt-6">
+          Next: connect real backend analyzer → then add animations for the visualizer.
+        </footer>
+      </div>
+    </main>
   );
 }
