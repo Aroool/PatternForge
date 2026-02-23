@@ -1,5 +1,5 @@
 "use client";
-
+import { analyzeProblem } from "@/lib/analyzer/analyze";
 import { useState } from "react";
 
 type AnalyzeResult = {
@@ -13,18 +13,13 @@ export default function Home() {
   const [result, setResult] = useState<AnalyzeResult | null>(null);
 
   const onAnalyze = () => {
-    // Dummy result for now (backend comes next)
-    const dummy: AnalyzeResult = {
-      pattern: "Sliding Window",
-      confidence: 78,
-      reasons: [
-        "The problem asks about a subarray/substring (contiguous segment).",
-        "It asks for longest/shortest/best length, which is common with windows.",
-        "Large constraints usually mean we need an O(n) scan with two pointers.",
-      ],
-    };
-    setResult(dummy);
-  };
+  const res = analyzeProblem(text);
+  setResult({
+    pattern: res.pattern,
+    confidence: res.confidence,
+    reasons: res.reasons,
+  });
+};
 
   return (
     <main className="min-h-screen">
