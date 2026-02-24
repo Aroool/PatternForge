@@ -107,7 +107,12 @@ export default function Home() {
         )}
 
         <footer className="text-xs text-neutral-500 pt-6">
-          Next: add more patterns + then start the visualizer animations.
+          <a
+  href="/visualize/sliding-window"
+  className="text-sm underline text-neutral-700"
+>
+  Open Sliding Window Visualizer →
+</a>
         </footer>
       </div>
     </main>
