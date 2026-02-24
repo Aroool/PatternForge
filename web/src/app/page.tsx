@@ -6,6 +6,7 @@ type AnalyzeResult = {
   pattern: string;
   confidence: number;
   reasons: string[];
+  debugTop3: { pattern: string; score: number; confidence: number }[];
 };
 
 export default function Home() {
@@ -13,13 +14,9 @@ export default function Home() {
   const [result, setResult] = useState<AnalyzeResult | null>(null);
 
   const onAnalyze = () => {
-  const res = analyzeProblem(text);
-  setResult({
-    pattern: res.pattern,
-    confidence: res.confidence,
-    reasons: res.reasons,
-  });
-};
+    const res = analyzeProblem(text);
+    setResult(res);
+  };
 
   return (
     <main className="min-h-screen">
@@ -78,11 +75,39 @@ export default function Home() {
                 ))}
               </ul>
             </div>
+
+            <div className="pt-2">
+              <details className="rounded-xl border bg-neutral-50/50 p-4">
+                <summary className="cursor-pointer text-sm font-medium">
+                  Debug: Top candidate patterns
+                </summary>
+
+                <div className="mt-3 space-y-2">
+                  {result.debugTop3?.length ? (
+                    result.debugTop3.map((p, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between rounded-lg border bg-white px-3 py-2"
+                      >
+                        <div className="text-sm font-medium">{p.pattern}</div>
+                        <div className="text-xs text-neutral-600">
+                          score: <span className="font-semibold">{p.score}</span>{" "}
+                          · confidence:{" "}
+                          <span className="font-semibold">{p.confidence}%</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-sm text-neutral-600">No candidates yet.</div>
+                  )}
+                </div>
+              </details>
+            </div>
           </section>
         )}
 
         <footer className="text-xs text-neutral-500 pt-6">
-          Next: connect real backend analyzer → then add animations for the visualizer.
+          Next: add more patterns + then start the visualizer animations.
         </footer>
       </div>
     </main>
