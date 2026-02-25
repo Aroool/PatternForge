@@ -51,8 +51,8 @@ export const UI = {
 
   // Window highlight overlay (Framer Motion div)
   windowHighlight:
-    "absolute top-8 h-12 rounded-xl border border-white/30 bg-white/10 backdrop-blur-sm shadow-[0_0_18px_rgba(255,255,255,0.12)]",
-
+  "pointer-events-none absolute top-8 h-12 rounded-xl border border-white/30 bg-white/10 shadow-[0_0_18px_rgba(255,255,255,0.12)] z-0",
+  
   // Banner (valid/invalid)
   banner:
     "rounded-xl border border-neutral-700 bg-neutral-900/70 text-white px-4 py-3 text-sm",
