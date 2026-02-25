@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { UI } from "@/lib/ui/styles";
 
 type Step = {
   l: number;
@@ -17,313 +18,133 @@ function buildSteps(arr: number[], k: number): Step[] {
 
   for (let r = 0; r < arr.length; r++) {
     sum += arr[r];
-    steps.push({
-      l,
-      r,
-      sum,
-      note: `Expand: add arr[${r}]=${arr[r]} → sum=${sum}`,
-    });
 
-    while (sum > k && l <= r) {
-      steps.push({ l, r, sum, note: `Invalid (sum>${k}). Shrink left.` });
+    steps.push({ l, r, sum, note: "Expand" });
+
+    while (sum > k) {
       sum -= arr[l];
       l++;
-      steps.push({
-        l,
-        r,
-        sum,
-        note: `Shrink: remove left → l=${l}, sum=${sum}`,
-      });
+      steps.push({ l, r, sum, note: "Shrink" });
     }
-
-    steps.push({
-      l,
-      r,
-      sum,
-      note: `Window valid: [${l}..${r}] sum=${sum}`,
-    });
   }
 
   return steps;
 }
 
-export default function SlidingWindowVisualizerPage() {
+export default function SlidingWindowPage() {
   const [arrText, setArrText] = useState("2,1,5,1,3,2");
   const [kText, setKText] = useState("7");
 
-  const arr = useMemo(() => {
-    return arrText
-      .split(",")
-      .map((x) => x.trim())
-      .filter(Boolean)
-      .map((x) => Number(x))
-      .filter((n) => Number.isFinite(n));
-  }, [arrText]);
+  const arr = useMemo(
+    () =>
+      arrText
+        .split(",")
+        .map((x) => Number(x.trim()))
+        .filter((n) => !isNaN(n)),
+    [arrText]
+  );
 
-  const k = useMemo(() => {
-    const n = Number(kText);
-    return Number.isFinite(n) ? n : 0;
-  }, [kText]);
+  const k = useMemo(() => Number(kText) || 0, [kText]);
 
   const steps = useMemo(() => buildSteps(arr, k), [arr, k]);
 
   const [i, setI] = useState(0);
   const [playing, setPlaying] = useState(false);
 
-  // ✅ Safe index for UI (no state updates needed)
-  const safeI = useMemo(() => {
-    if (steps.length === 0) return 0;
-    return Math.min(i, steps.length - 1);
-  }, [i, steps.length]);
+  const step = steps[i];
 
-  const step = steps.length ? steps[safeI] : undefined;
-
-  // ============================
-  // ✅ Proper Play/Pause engine
-  // ============================
   useEffect(() => {
     if (!playing) return;
-    if (steps.length === 0) return;
-
     const id = setInterval(() => {
       setI((prev) => {
-        const next = prev + 1;
-
-        // stop at end
-        if (next >= steps.length) {
+        if (prev >= steps.length - 1) {
           setPlaying(false);
           return prev;
         }
-
-        return next;
+        return prev + 1;
       });
-    }, 650);
-
+    }, 700);
     return () => clearInterval(id);
   }, [playing, steps.length]);
 
-  // ============================
-  // Animation positioning
-  // ============================
-  const cellWidth = 72; // px
-  const baseX = 0;
-
-  const leftX = step ? baseX + step.l * cellWidth : 0;
-  const rightX = step ? baseX + step.r * cellWidth : 0;
+  const cellWidth = 72;
+  const leftX = step ? step.l * cellWidth : 0;
 
   return (
-    <main className="min-h-screen">
-      <div className="mx-auto max-w-5xl p-6 md:p-10 space-y-6">
-        <header className="space-y-2">
-          <h1 className="text-3xl md:text-4xl font-bold">
-            Sliding Window Visualizer
-          </h1>
-          <p className="text-sm md:text-base text-neutral-600">
-            Demo: Maintain a window where{" "}
-            <span className="font-semibold">sum ≤ k</span>.
-          </p>
-        </header>
+    <main className={UI.page}>
+      <div className={UI.container}>
+        <h1 className={UI.title}>Sliding Window (Sum ≤ k)</h1>
 
-        {/* Controls */}
-        <section className="rounded-2xl border p-5 md:p-6 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div className="space-y-1">
-              <div className="text-sm font-medium">Array (comma separated)</div>
-              <input
-                className="w-full rounded-xl border px-3 py-2 outline-none focus:ring-2 focus:ring-neutral-300"
-                value={arrText}
-                onChange={(e) => {
-                  setArrText(e.target.value);
-                  setI(0);
-                  setPlaying(false);
-                }}
-              />
-            </div>
+        <section className={`${UI.panel} ${UI.panelInner}`}>
+          <input
+            value={arrText}
+            onChange={(e) => {
+              setArrText(e.target.value);
+              setI(0);
+              setPlaying(false);
+            }}
+            className={UI.input}
+          />
+          <input
+            value={kText}
+            onChange={(e) => {
+              setKText(e.target.value);
+              setI(0);
+              setPlaying(false);
+            }}
+            className={UI.input}
+          />
 
-            <div className="space-y-1">
-              <div className="text-sm font-medium">k</div>
-              <input
-                className="w-full rounded-xl border px-3 py-2 outline-none focus:ring-2 focus:ring-neutral-300"
-                value={kText}
-                onChange={(e) => {
-                  setKText(e.target.value);
-                  setI(0);
-                  setPlaying(false);
-                }}
-              />
-            </div>
-
-            <div className="space-y-1">
-              <div className="text-sm font-medium">Playback</div>
-              <div className="flex gap-2 flex-wrap">
-                <button
-                  className="rounded-xl px-4 py-2 bg-black text-white disabled:opacity-40"
-                  disabled={steps.length === 0 || playing}
-                  onClick={() => setPlaying(true)}
-                >
-                  Play
-                </button>
-
-                <button
-                  className="rounded-xl px-4 py-2 border disabled:opacity-40"
-                  disabled={!playing}
-                  onClick={() => setPlaying(false)}
-                >
-                  Pause
-                </button>
-
-                <button
-                  className="rounded-xl px-4 py-2 border disabled:opacity-40"
-                  disabled={steps.length === 0 || safeI === 0}
-                  onClick={() => {
-                    setPlaying(false);
-                    setI((x) => Math.max(0, x - 1));
-                  }}
-                >
-                  Prev
-                </button>
-
-                <button
-                  className="rounded-xl px-4 py-2 border disabled:opacity-40"
-                  disabled={steps.length === 0 || safeI >= steps.length - 1}
-                  onClick={() => {
-                    setPlaying(false);
-                    setI((x) => Math.min(steps.length - 1, x + 1));
-                  }}
-                >
-                  Next
-                </button>
-
-                <button
-                  className="rounded-xl px-4 py-2 border disabled:opacity-40"
-                  disabled={steps.length === 0}
-                  onClick={() => {
-                    setPlaying(false);
-                    setI(0);
-                  }}
-                >
-                  Reset
-                </button>
-              </div>
-            </div>
+          <div className="flex gap-2">
+            <button
+              className={UI.btnPrimary}
+              onClick={() => setPlaying(true)}
+            >
+              Play
+            </button>
+            <button
+              className={UI.btnGhost}
+              onClick={() => setPlaying(false)}
+            >
+              Pause
+            </button>
           </div>
 
-          {/* Timeline Scrubber */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-medium">Timeline</div>
-              <div className="text-xs text-neutral-600">
-                {steps.length ? safeI + 1 : 0} / {steps.length}
-              </div>
+          {step && (
+            <div className={UI.banner}>
+              sum = {step.sum} / k = {k}
             </div>
-
-            <input
-              type="range"
-              min={0}
-              max={Math.max(0, steps.length - 1)}
-              value={safeI}
-              onChange={(e) => {
-                setPlaying(false);
-                setI(Number(e.target.value));
-              }}
-              className="w-full"
-              disabled={steps.length === 0}
-            />
-          </div>
-
-          {/* Status */}
-          <div className="flex flex-wrap gap-3 text-sm">
-            <div className="rounded-full border px-3 py-1">
-              Step:{" "}
-              <span className="font-semibold">{steps.length ? safeI + 1 : 0}</span>{" "}
-              / <span className="font-semibold">{steps.length}</span>
-            </div>
-            <div className="rounded-full border px-3 py-1">
-              l: <span className="font-semibold">{step?.l ?? "-"}</span>
-            </div>
-            <div className="rounded-full border px-3 py-1">
-              r: <span className="font-semibold">{step?.r ?? "-"}</span>
-            </div>
-            <div className="rounded-full border px-3 py-1">
-              sum: <span className="font-semibold">{step?.sum ?? "-"}</span>
-            </div>
-            <div className="rounded-full border px-3 py-1">
-              k: <span className="font-semibold">{k}</span>
-            </div>
-          </div>
-
-          {/* Note */}
-          <div className="text-sm text-neutral-700">
-            <span className="font-medium">Note:</span> {step?.note ?? "—"}
-          </div>
+          )}
         </section>
 
-        {/* Visualization */}
-        <section className="rounded-2xl border p-5 md:p-6 space-y-4">
-          <div className="text-sm font-medium">Array</div>
+        <section className={`${UI.panel} ${UI.panelInner}`}>
+          <div className="relative inline-block pt-10">
+            {step && (
+              <motion.div
+                className={UI.windowHighlight}
+                animate={{
+                  x: leftX,
+                  width: (step.r - step.l + 1) * cellWidth,
+                }}
+              />
+            )}
 
-          <div className="relative overflow-x-auto">
-            <div className="relative inline-block" style={{ paddingTop: 44 }}>
-              {/* Window highlight */}
-              {step && (
-                <motion.div
-                  className="absolute top-8 h-12 rounded-xl border bg-neutral-100/70"
-                  initial={false}
-                  animate={{
-                    x: baseX + step.l * cellWidth,
-                    width: (step.r - step.l + 1) * cellWidth,
-                  }}
-                  transition={{ type: "spring", stiffness: 260, damping: 30 }}
-                />
-              )}
-
-              {/* Pointer labels */}
-              {step && (
-                <>
-                  <motion.div
-                    className="absolute top-0 text-xs font-semibold"
-                    initial={false}
-                    animate={{ x: leftX }}
-                    transition={{ type: "spring", stiffness: 260, damping: 30 }}
-                    style={{ width: cellWidth }}
+            <div className="relative z-10 flex">
+              {arr.map((num, idx) => {
+                const inWindow =
+                  step && idx >= step.l && idx <= step.r;
+                return (
+                  <div
+                    key={idx}
+                    className={`h-12 w-[72px] ${UI.cellBase} ${
+                      inWindow ? UI.cellActive : UI.cellInactive
+                    }`}
                   >
-                    L
-                  </motion.div>
-
-                  <motion.div
-                    className="absolute top-0 text-xs font-semibold text-right"
-                    initial={false}
-                    animate={{ x: rightX }}
-                    transition={{ type: "spring", stiffness: 260, damping: 30 }}
-                    style={{ width: cellWidth }}
-                  >
-                    R
-                  </motion.div>
-                </>
-              )}
-
-              {/* Cells */}
-              <div className="relative flex">
-                {arr.map((val, idx) => {
-                  const inWindow = step ? idx >= step.l && idx <= step.r : false;
-                  return (
-                    <div
-                      key={idx}
-                      className={[
-                        "h-12 w-[72px] flex items-center justify-center border rounded-xl mx-1 text-sm font-medium",
-                        inWindow ? "bg-white" : "bg-transparent",
-                      ].join(" ")}
-                    >
-                      {val}
-                    </div>
-                  );
-                })}
-              </div>
+                    {num}
+                  </div>
+                );
+              })}
             </div>
-          </div>
-
-          <div className="text-xs text-neutral-500">
-            Tip: Try different arrays/k. Watch how L shrinks when sum goes above k.
           </div>
         </section>
       </div>
