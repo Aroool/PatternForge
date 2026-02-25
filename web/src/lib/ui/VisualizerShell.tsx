@@ -1,4 +1,5 @@
 "use client";
+import BackButton from "@/lib/ui/BackButton";
 
 import React from "react";
 import { UI } from "@/lib/ui/styles";
@@ -32,9 +33,13 @@ export default function VisualizerShell({
     <main className={UI.page}>
       <div className={UI.container}>
         <header className="space-y-2">
-          <h1 className={UI.title}>{title}</h1>
-          {subtitle ? <div className={UI.subtitle}>{subtitle}</div> : null}
-        </header>
+  <div className="flex items-center justify-between">
+    <BackButton />
+    <div className="hidden md:block" />
+  </div>
+  <h1 className={UI.title}>{title}</h1>
+  {subtitle ? <div className={UI.subtitle}>{subtitle}</div> : null}
+</header>
 
         {/* Controls */}
         {controls ? (
