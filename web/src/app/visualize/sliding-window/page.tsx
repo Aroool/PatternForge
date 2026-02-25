@@ -70,33 +70,37 @@ export default function SlidingWindowVisualizerPage() {
   const [i, setI] = useState(0);
   const [playing, setPlaying] = useState(false);
 
-  const step = steps[Math.min(i, Math.max(steps.length - 1, 0))];
+  // ✅ Safe index for UI (no state updates needed)
+  const safeI = useMemo(() => {
+    if (steps.length === 0) return 0;
+    return Math.min(i, steps.length - 1);
+  }, [i, steps.length]);
+
+  const step = steps.length ? steps[safeI] : undefined;
 
   // ============================
   // ✅ Proper Play/Pause engine
-  // (stops playback inside tick)
   // ============================
   useEffect(() => {
     if (!playing) return;
     if (steps.length === 0) return;
+
     const id = setInterval(() => {
       setI((prev) => {
         const next = prev + 1;
+
         // stop at end
         if (next >= steps.length) {
           setPlaying(false);
           return prev;
         }
+
         return next;
       });
     }, 650);
+
     return () => clearInterval(id);
   }, [playing, steps.length]);
-
-  // Clamp index if steps change (e.g., user edits array/k)
-  useEffect(() => {
-    setI((prev) => Math.min(prev, Math.max(0, steps.length - 1)));
-  }, [steps.length]);
 
   // ============================
   // Animation positioning
@@ -170,7 +174,7 @@ export default function SlidingWindowVisualizerPage() {
 
                 <button
                   className="rounded-xl px-4 py-2 border disabled:opacity-40"
-                  disabled={steps.length === 0 || i === 0}
+                  disabled={steps.length === 0 || safeI === 0}
                   onClick={() => {
                     setPlaying(false);
                     setI((x) => Math.max(0, x - 1));
@@ -181,7 +185,7 @@ export default function SlidingWindowVisualizerPage() {
 
                 <button
                   className="rounded-xl px-4 py-2 border disabled:opacity-40"
-                  disabled={steps.length === 0 || i >= steps.length - 1}
+                  disabled={steps.length === 0 || safeI >= steps.length - 1}
                   onClick={() => {
                     setPlaying(false);
                     setI((x) => Math.min(steps.length - 1, x + 1));
@@ -209,7 +213,7 @@ export default function SlidingWindowVisualizerPage() {
             <div className="flex items-center justify-between">
               <div className="text-sm font-medium">Timeline</div>
               <div className="text-xs text-neutral-600">
-                {steps.length ? i + 1 : 0} / {steps.length}
+                {steps.length ? safeI + 1 : 0} / {steps.length}
               </div>
             </div>
 
@@ -217,7 +221,7 @@ export default function SlidingWindowVisualizerPage() {
               type="range"
               min={0}
               max={Math.max(0, steps.length - 1)}
-              value={Math.min(i, Math.max(0, steps.length - 1))}
+              value={safeI}
               onChange={(e) => {
                 setPlaying(false);
                 setI(Number(e.target.value));
@@ -230,7 +234,8 @@ export default function SlidingWindowVisualizerPage() {
           {/* Status */}
           <div className="flex flex-wrap gap-3 text-sm">
             <div className="rounded-full border px-3 py-1">
-              Step: <span className="font-semibold">{steps.length ? i + 1 : 0}</span>{" "}
+              Step:{" "}
+              <span className="font-semibold">{steps.length ? safeI + 1 : 0}</span>{" "}
               / <span className="font-semibold">{steps.length}</span>
             </div>
             <div className="rounded-full border px-3 py-1">
