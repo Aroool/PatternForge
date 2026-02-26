@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import VisualizerShell from "@/lib/ui/VisualizerShell";
 import { UI } from "@/lib/ui/styles";
+import SpeedControl from "@/lib/ui/SpeedControl";
 import TimelineScrubber from "@/lib/ui/TimeLineScrubber";
 
 import { PatternRegistry } from "@/lib/engine/registry";
@@ -160,21 +161,14 @@ export default function BinarySearchPage() {
             </button>
           </div>
 
-          <div className="flex items-center gap-3 pt-2">
-            <div className={UI.hint}>Speed</div>
-            <input
-              type="range"
-              min={250}
-              max={1200}
-              step={50}
-              value={speedMs}
-              onChange={(e) => setSpeedMs(Number(e.target.value))}
-              className="w-full"
-            />
-            <div className={UI.hint}>{speedMs}ms</div>
-          </div>
-        </div>
-                  {/* Fancy Timeline */}
+          <div className="flex items-center justify-between pt-2">
+  <SpeedControl
+    value={speedMs}
+    onChange={(val) => {
+      setSpeedMs(val);
+    }}
+  />
+</div>
 <TimelineScrubber
   total={steps.length}
   current={safeI}
@@ -183,6 +177,7 @@ export default function BinarySearchPage() {
     setI(index);
   }}
 />
+        </div>
       </div>
 
       {/* Status chips */}
