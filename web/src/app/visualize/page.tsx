@@ -1,10 +1,17 @@
 "use client";
 
+import BackButton from "@/lib/ui/BackButton";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { UI } from "@/lib/ui/styles";
 
 const items = [
+    {
+  title: "Binary Search",
+  desc: "See lo / mid / hi move while the search space shrinks.",
+  href: "/visualize/binary-search",
+  tag: "Search • Arrays",
+},
   {
     title: "Sliding Window (Sum ≤ k)",
     desc: "Watch L/R move while sum stays within k.",
@@ -17,6 +24,7 @@ const items = [
     href: "/visualize/substring-window",
     tag: "Window • Strings",
   },
+  
 ];
 
 export default function VisualizeHome() {
@@ -24,11 +32,12 @@ export default function VisualizeHome() {
     <main className={UI.page}>
       <div className={UI.container}>
         <header className="space-y-2">
-          <h1 className={UI.title}>Visualizers</h1>
-          <p className={UI.subtitle}>
-            Pick a pattern. See it move. Understand it forever.
-          </p>
-        </header>
+  <div className="pb-2">
+    <BackButton href="/" label="Home" />
+  </div>
+  <h1 className={UI.title}>Visualizers</h1>
+  <p className={UI.subtitle}>Pick a pattern. See it move. Understand it forever.</p>
+</header>
 
         <section className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {items.map((it) => (
