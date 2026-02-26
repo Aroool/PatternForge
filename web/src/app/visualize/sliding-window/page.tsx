@@ -21,7 +21,7 @@ function parseArray(text: string): number[] {
 }
 
 export default function SlidingWindowPage() {
-  const pattern = PatternRegistry["sliding-window"];
+  const pattern = PatternRegistry["sliding-window"]; // MUST match registry key
 
   const [arrText, setArrText] = useState("2,1,5,1,3,2");
   const [kText, setKText] = useState("7");
@@ -70,17 +70,20 @@ export default function SlidingWindowPage() {
   const cellWidth = 72;
   const baseX = 0;
 
-  const leftX = step ? baseX + step.l * cellWidth : 0;
-  const rightX = step ? baseX + step.r * cellWidth : 0;
+  const leftX = step ? baseX + Math.max(0, step.l) * cellWidth : 0;
+  const rightX = step ? baseX + Math.max(0, step.r) * cellWidth : 0;
 
   const windowWidth =
-    step && step.r >= step.l ? (step.r - step.l + 1) * cellWidth : 0;
+    step && step.r >= step.l && step.r >= 0
+      ? (step.r - step.l + 1) * cellWidth
+      : 0;
 
   const lineIdx = step ? pattern.activeLine(step) : 0;
 
-  // Controls block (same structure as Binary)
+  // -------- Controls layout (your exact layout) --------
   const controls = (
     <>
+      {/* Row 1: inputs */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="space-y-1">
           <div className={UI.sectionTitle}>Array (comma separated)</div>
@@ -89,8 +92,8 @@ export default function SlidingWindowPage() {
             value={arrText}
             onChange={(e) => {
               setArrText(e.target.value);
-              setPlaying(false);
               setI(0);
+              setPlaying(false);
             }}
           />
         </div>
@@ -102,14 +105,15 @@ export default function SlidingWindowPage() {
             value={kText}
             onChange={(e) => {
               setKText(e.target.value);
-              setPlaying(false);
               setI(0);
+              setPlaying(false);
             }}
           />
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-3 flex-wrap pt-3">
+      {/* Row 2: playback buttons + speed */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 pt-2">
         <div className="flex gap-2 flex-wrap">
           <button
             className={UI.btnPrimary}
@@ -164,7 +168,8 @@ export default function SlidingWindowPage() {
         <SpeedControl value={speedMs} onChange={setSpeedMs} />
       </div>
 
-      <div className="pt-3">
+      {/* Row 3: full width timeline scrubber */}
+      <div className="pt-2">
         <TimelineScrubber
           total={steps.length}
           current={safeI}
@@ -175,46 +180,43 @@ export default function SlidingWindowPage() {
         />
       </div>
 
-      {/* Status chips */}
+      {/* Row 4: status chips */}
       {step && (
-        <div className="flex flex-wrap gap-3 pt-3">
+        <div className="flex flex-wrap gap-3 pt-2">
           <div className={UI.chip}>l: {step.l}</div>
           <div className={UI.chip}>r: {step.r}</div>
           <div className={UI.chip}>sum: {step.sum}</div>
           <div className={UI.chip}>k: {step.k}</div>
+          <div className={UI.chip}>bestLen: {step.bestLen}</div>
         </div>
       )}
 
+      {/* note banner */}
       {step && (
-        <div className={`${UI.banner} mt-3`}>
-          <div className="font-medium">
-            {step.valid ? "✅ Valid window" : "❌ Invalid window"}
-          </div>
-          <div className="text-neutral-200">{step.note}</div>
+        <div className={`${UI.banner} mt-2`}>
+          <div>{step.note}</div>
         </div>
       )}
     </>
   );
 
-  // Main visualization
+  // -------- Main visualization --------
   const mainViz = (
     <>
       <div className={UI.sectionTitle}>Array</div>
 
       <div className="relative overflow-x-auto">
-        {/* IMPORTANT: extra padding so highlight doesn't clip */}
-        <div className="relative inline-block" style={{ paddingTop: 54, paddingBottom: 22 }}>
-          {/* highlight BEHIND cells (no blur here) */}
-          {step && step.r >= step.l && (
+        <div className="relative inline-block" style={{ paddingTop: 54 }}>
+          {/* window highlight */}
+          {step && windowWidth > 0 && (
             <motion.div
               className={UI.windowHighlight}
-              initial={false}
               animate={{ x: leftX, width: windowWidth }}
             />
           )}
 
-          {/* pointer labels */}
-          {step && (
+          {/* L / R labels */}
+          {step && step.r >= 0 && (
             <>
               <motion.div
                 className="absolute top-0 text-xs font-semibold text-white/80"
@@ -236,13 +238,15 @@ export default function SlidingWindowPage() {
             </>
           )}
 
+          {/* cells */}
           <div className="relative z-10 flex">
             {arr.map((val, idx) => {
-              const inWindow = step ? idx >= step.l && idx <= step.r : false;
-
+              const inWindow =
+                step && idx >= step.l && idx <= step.r && step.r >= 0;
               return (
-                <div
+                <motion.div
                   key={idx}
+                  animate={{ opacity: !step || inWindow ? 1 : 0.25 }}
                   className={[
                     UI.cellBase,
                     "h-12 w-[72px] mx-1",
@@ -250,30 +254,16 @@ export default function SlidingWindowPage() {
                   ].join(" ")}
                 >
                   {val}
-                </div>
+                </motion.div>
               );
             })}
           </div>
         </div>
       </div>
-
-      {/* Best window (optional) */}
-      {step && step.bestR >= step.bestL && step.bestR >= 0 && (
-        <div className="mt-4 rounded-xl border border-neutral-800 bg-neutral-900/40 p-4">
-          <div className="text-sm font-medium text-white">Best window so far</div>
-          <div className="text-sm text-neutral-300 mt-1">
-            len: <span className="text-white font-semibold">{step.bestLen}</span>{" "}
-            · indices:{" "}
-            <span className="text-white font-semibold">
-              {step.bestL}..{step.bestR}
-            </span>
-          </div>
-        </div>
-      )}
     </>
   );
 
-  // Code panel
+  // -------- Code panel --------
   const side = (
     <>
       <div className={UI.sectionTitle}>Code</div>
@@ -301,7 +291,7 @@ export default function SlidingWindowPage() {
   return (
     <VisualizerShell
       title={pattern.name}
-      subtitle="Sliding Window powered by PatternEngine."
+      subtitle={pattern.subtitle}
       controls={controls}
       side={side}
     >

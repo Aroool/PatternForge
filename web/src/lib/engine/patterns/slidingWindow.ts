@@ -1,4 +1,5 @@
 // src/lib/engine/patterns/slidingWindow.ts
+
 export type SlidingStep = {
   l: number;
   r: number;
@@ -7,12 +8,12 @@ export type SlidingStep = {
   valid: boolean;
   note: string;
 
-  // for “best window so far” (optional, but nice)
+  // best window so far (max length while sum <= k)
   bestLen: number;
   bestL: number;
   bestR: number;
 
-  // helps code-highlighting
+  // for code highlighting
   phase:
     | "init"
     | "expand_add"
@@ -26,81 +27,62 @@ export type SlidingStep = {
 type Pattern = {
   key: string;
   name: string;
+  subtitle: string;
   codeLines: string[];
   buildSteps: (arr: number[], k: number) => SlidingStep[];
   activeLine: (step: SlidingStep) => number; // 0-based index into codeLines
 };
 
-function clampK(n: number) {
-  return Number.isFinite(n) ? n : 0;
+function clampNumber(n: number, fallback = 0) {
+  return Number.isFinite(n) ? n : fallback;
 }
 
-/**
- * Demo pattern:
- * Maintain a window where sum <= k
- * Typical: "smallest subarray length with sum >= k" is different;
- * we’re using the SAME logic you already built (sum<=k).
- */
-function buildSteps(arr: number[], rawK: number): SlidingStep[] {
-  const steps: SlidingStep[] = [];
-  const k = clampK(rawK);
+export const SlidingWindowPattern: Pattern = {
+  key: "sliding-window",
+  name: "Sliding Window",
+  subtitle: "Maintain a window where sum ≤ k (shrink when invalid).",
 
-  if (!arr.length) return steps;
+  codeLines: [
+    "l = 0",
+    "sum = 0",
+    "best = 0",
+    "for r in range(n):",
+    "  sum += a[r]",
+    "  while sum > k:",
+    "    sum -= a[l]",
+    "    l += 1",
+    "  best = max(best, r-l+1)",
+  ],
 
-  let l = 0;
-  let sum = 0;
+  buildSteps: (arr, kRaw) => {
+    const steps: SlidingStep[] = [];
+    const k = clampNumber(kRaw, 0);
 
-  let bestLen = 0;
-  let bestL = 0;
-  let bestR = -1;
+    if (!arr.length) return steps;
 
-  steps.push({
-    l,
-    r: -1,
-    sum,
-    k,
-    valid: true,
-    note: `Init: l=0, sum=0`,
-    bestLen,
-    bestL,
-    bestR,
-    phase: "init",
-  });
+    let l = 0;
+    let sum = 0;
 
-  for (let r = 0; r < arr.length; r++) {
-    sum += arr[r];
+    let bestLen = 0;
+    let bestL = 0;
+    let bestR = -1;
 
+    // init snapshot
     steps.push({
       l,
-      r,
+      r: -1,
       sum,
       k,
-      valid: sum <= k,
-      note: `Expand: add arr[${r}]=${arr[r]} → sum=${sum}`,
+      valid: true,
+      note: "Init: l=0, sum=0, best=0",
       bestLen,
       bestL,
       bestR,
-      phase: "expand_add",
+      phase: "init",
     });
 
-    // shrink while invalid
-    while (sum > k && l <= r) {
-      steps.push({
-        l,
-        r,
-        sum,
-        k,
-        valid: false,
-        note: `Invalid: sum=${sum} > k=${k}. Shrink from left.`,
-        bestLen,
-        bestL,
-        bestR,
-        phase: "while_check",
-      });
-
-      const removed = arr[l];
-      sum -= removed;
-      l++;
+    for (let r = 0; r < arr.length; r++) {
+      sum += arr[r];
 
       steps.push({
         l,
@@ -108,103 +90,130 @@ function buildSteps(arr: number[], rawK: number): SlidingStep[] {
         sum,
         k,
         valid: sum <= k,
-        note: `Shrink: remove ${removed}. l=${l}, sum=${sum}`,
+        note: `Expand: add a[${r}]=${arr[r]} → sum=${sum}`,
         bestLen,
         bestL,
         bestR,
-        phase: "shrink_remove",
+        phase: "expand_add",
       });
-    }
 
-    steps.push({
-      l,
-      r,
-      sum,
-      k,
-      valid: sum <= k,
-      note: `Window valid: [${l}..${r}] sum=${sum}`,
-      bestLen,
-      bestL,
-      bestR,
-      phase: "after_shrink",
-    });
+      // while check snapshot (so code highlight feels real)
+      steps.push({
+        l,
+        r,
+        sum,
+        k,
+        valid: sum <= k,
+        note: `Check: sum=${sum} ${sum <= k ? "≤" : ">"} k=${k}`,
+        bestLen,
+        bestL,
+        bestR,
+        phase: "while_check",
+      });
 
-    // optional “best window so far” (longest valid window)
-    // if you prefer something else, we can change later.
-    if (sum <= k) {
-      const len = r - l + 1;
-      if (len > bestLen) {
-        bestLen = len;
-        bestL = l;
-        bestR = r;
+      while (sum > k && l <= r) {
+        const removed = arr[l];
+        sum -= removed;
+        l++;
 
         steps.push({
           l,
           r,
           sum,
           k,
-          valid: true,
-          note: `New best: [${bestL}..${bestR}] len=${bestLen}`,
+          valid: sum <= k,
+          note: `Shrink: remove left (${removed}) → l=${l}, sum=${sum}`,
           bestLen,
           bestL,
           bestR,
-          phase: "update_best",
+          phase: "shrink_remove",
+        });
+
+        steps.push({
+          l,
+          r,
+          sum,
+          k,
+          valid: sum <= k,
+          note: `After shrink: sum=${sum} ${sum <= k ? "≤" : ">"} k=${k}`,
+          bestLen,
+          bestL,
+          bestR,
+          phase: "after_shrink",
         });
       }
+
+      // update best (only if valid)
+      if (sum <= k) {
+        const len = r - l + 1;
+        if (len > bestLen) {
+          bestLen = len;
+          bestL = l;
+          bestR = r;
+
+          steps.push({
+            l,
+            r,
+            sum,
+            k,
+            valid: true,
+            note: `New best: [${bestL}..${bestR}] len=${bestLen}`,
+            bestLen,
+            bestL,
+            bestR,
+            phase: "update_best",
+          });
+        } else {
+          steps.push({
+            l,
+            r,
+            sum,
+            k,
+            valid: true,
+            note: `Valid window: [${l}..${r}] len=${len} (best=${bestLen})`,
+            bestLen,
+            bestL,
+            bestR,
+            phase: "update_best",
+          });
+        }
+      }
     }
-  }
 
-  steps.push({
-    l,
-    r: arr.length - 1,
-    sum,
-    k,
-    valid: sum <= k,
-    note: "Done.",
-    bestLen,
-    bestL,
-    bestR,
-    phase: "done",
-  });
+    steps.push({
+      l,
+      r: arr.length - 1,
+      sum,
+      k,
+      valid: sum <= k,
+      note: "Done.",
+      bestLen,
+      bestL,
+      bestR,
+      phase: "done",
+    });
 
-  return steps;
-}
+    return steps;
+  },
 
-const codeLines = [
-  "l = 0; sum = 0",
-  "for r in [0..n-1]:",
-  "  sum += arr[r]",
-  "  while sum > k:",
-  "    sum -= arr[l]; l += 1",
-  "  window is valid (sum <= k)",
-  "  update best window (optional)",
-];
-
-function activeLine(step: SlidingStep): number {
-  switch (step.phase) {
-    case "init":
-      return 0;
-    case "expand_add":
-      return 2;
-    case "while_check":
-      return 3;
-    case "shrink_remove":
-      return 4;
-    case "after_shrink":
-      return 5;
-    case "update_best":
-      return 6;
-    case "done":
-      return 5;
-    default:
-      return 0;
-  }
-}
-
-export const SlidingWindowPattern: Pattern = {
-  key: "sliding-window",
-  name: "Sliding Window",
-  codeLines,
-  buildSteps,
-  activeLine,
+  activeLine: (step) => {
+    // Map “phase” -> which code line should glow
+    switch (step.phase) {
+      case "init":
+        return 0; // l = 0
+      case "expand_add":
+        return 4; // sum += a[r]
+      case "while_check":
+        return 5; // while sum > k:
+      case "shrink_remove":
+        return 6; // sum -= a[l]
+      case "after_shrink":
+        return 7; // l += 1
+      case "update_best":
+        return 8; // best = max(...)
+      case "done":
+      default:
+        return 8;
+    }
+  },
 };

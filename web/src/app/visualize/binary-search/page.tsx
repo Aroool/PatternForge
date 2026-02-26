@@ -7,7 +7,6 @@ import { UI } from "@/lib/ui/styles";
 import SpeedControl from "@/lib/ui/SpeedControl";
 import TimelineScrubber from "@/lib/ui/TimeLineScrubber";
 import VariantTabs from "@/lib/ui/VariantTabs";
-
 import { PatternRegistry } from "@/lib/engine/registry";
 import type { BinaryStep, BinaryVariant } from "@/lib/engine/patterns/binarySearch";
 
