@@ -2,159 +2,36 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { UI } from "@/lib/ui/styles";
+
 import VisualizerShell from "@/lib/ui/VisualizerShell";
+import { UI } from "@/lib/ui/styles";
+import SpeedControl from "@/lib/ui/SpeedControl";
+import TimelineScrubber from "@/lib/ui/TimeLineScrubber";
 
-type FreqMap = Record<string, number>;
-
-type Step = {
-  l: number;
-  r: number;
-  charAdded?: string;
-  charRemoved?: string;
-  freq: FreqMap;
-  distinct: number;
-  valid: boolean;
-  note: string;
-
-  bestLen: number;
-  bestL: number;
-  bestR: number;
-};
-
-function cloneFreq(freq: FreqMap): FreqMap {
-  return { ...freq };
-}
-
-function distinctCount(freq: FreqMap): number {
-  return Object.keys(freq).length;
-}
-
-/**
- * Build animation steps for:
- * "Longest substring with at most k distinct characters"
- */
-function buildSteps(s: string, k: number): Step[] {
-  const steps: Step[] = [];
-  if (!s.length) return steps;
-
-  if (k < 0) k = 0;
-
-  let l = 0;
-  const freq: FreqMap = {};
-  let bestLen = 0;
-  let bestL = 0;
-  let bestR = -1;
-
-  for (let r = 0; r < s.length; r++) {
-    const ch = s[r];
-    freq[ch] = (freq[ch] ?? 0) + 1;
-
-    let d = distinctCount(freq);
-    let valid = d <= k;
-
-    steps.push({
-      l,
-      r,
-      charAdded: ch,
-      freq: cloneFreq(freq),
-      distinct: d,
-      valid,
-      note: `Expand: add '${ch}' at r=${r}. distinct=${d} (k=${k}).`,
-      bestLen,
-      bestL,
-      bestR,
-    });
-
-    // Shrink until valid
-    while (d > k && l <= r) {
-      steps.push({
-        l,
-        r,
-        freq: cloneFreq(freq),
-        distinct: d,
-        valid: false,
-        note: `Invalid: distinct=${d} > k=${k}. Shrink from left.`,
-        bestLen,
-        bestL,
-        bestR,
-      });
-
-      const leftChar = s[l];
-      freq[leftChar] = (freq[leftChar] ?? 0) - 1;
-      if (freq[leftChar] <= 0) delete freq[leftChar];
-      l++;
-
-      d = distinctCount(freq);
-      valid = d <= k;
-
-      steps.push({
-        l,
-        r,
-        charRemoved: leftChar,
-        freq: cloneFreq(freq),
-        distinct: d,
-        valid,
-        note: `Shrink: removed '${leftChar}'. l=${l}. distinct=${d} (k=${k}).`,
-        bestLen,
-        bestL,
-        bestR,
-      });
-    }
-
-    // If valid, update best
-    if (valid) {
-      const len = r - l + 1;
-      if (len > bestLen) {
-        bestLen = len;
-        bestL = l;
-        bestR = r;
-
-        steps.push({
-          l,
-          r,
-          freq: cloneFreq(freq),
-          distinct: d,
-          valid: true,
-          note: `✅ New best window: [${bestL}..${bestR}] length=${bestLen}.`,
-          bestLen,
-          bestL,
-          bestR,
-        });
-      } else {
-        steps.push({
-          l,
-          r,
-          freq: cloneFreq(freq),
-          distinct: d,
-          valid: true,
-          note: `Window valid: [${l}..${r}] length=${len}. Best=${bestLen}.`,
-          bestLen,
-          bestL,
-          bestR,
-        });
-      }
-    }
-  }
-
-  return steps;
-}
+import { PatternRegistry } from "@/lib/engine/registry";
+import { SubstringStep } from "@/lib/engine/patterns/substringWindow";
 
 export default function SubstringWindowPage() {
+  const pattern = PatternRegistry["substring-window"];
+
   const [sText, setSText] = useState("eceba");
   const [kText, setKText] = useState("2");
 
-  const s = useMemo(() => sText, [sText]);
+  const s = useMemo(() => sText ?? "", [sText]);
   const k = useMemo(() => {
     const n = Number(kText);
     if (!Number.isFinite(n)) return 0;
     return Math.max(0, Math.floor(n));
   }, [kText]);
 
-  const steps = useMemo(() => buildSteps(s, k), [s, k]);
+  const steps = useMemo(
+    () => pattern.buildSteps(s, k) as SubstringStep[],
+    [s, k, pattern]
+  );
 
   const [i, setI] = useState(0);
   const [playing, setPlaying] = useState(false);
+  const [speedMs, setSpeedMs] = useState(650);
 
   const safeI = useMemo(() => {
     if (steps.length === 0) return 0;
@@ -163,7 +40,6 @@ export default function SubstringWindowPage() {
 
   const step = steps.length ? steps[safeI] : undefined;
 
-  // Proper play/pause
   useEffect(() => {
     if (!playing) return;
     if (steps.length === 0) return;
@@ -177,34 +53,38 @@ export default function SubstringWindowPage() {
         }
         return next;
       });
-    }, 650);
+    }, speedMs);
 
     return () => clearInterval(id);
-  }, [playing, steps.length]);
+  }, [playing, steps.length, speedMs]);
 
-  // Geometry
-  const cellWidth = 64;
+  // --- Visual geometry ---
+  const cellWidth = 72;
   const baseX = 0;
 
-  const leftX = step ? baseX + step.l * cellWidth : 0;
-  const rightX = step ? baseX + step.r * cellWidth : 0;
+  const leftX = step ? baseX + Math.max(0, step.l) * cellWidth : 0;
+  const rightX =
+    step && step.r >= 0 ? baseX + step.r * cellWidth : baseX;
+
+  const windowWidth =
+    step && step.r >= step.l && step.r >= 0
+      ? (step.r - step.l + 1) * cellWidth
+      : 0;
 
   const bestText =
     step && step.bestR >= step.bestL && step.bestR >= 0
       ? s.slice(step.bestL, step.bestR + 1)
       : "";
 
-  const freqEntries = useMemo(() => {
-    if (!step) return [];
-    return Object.entries(step.freq).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [step]);
+  const lineIdx = step ? pattern.activeLine(step) : 0;
 
-  // ---------- Controls block (passed into shell) ----------
+  // ---------- Controls (same layout style as Binary) ----------
   const controls = (
-    <>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+    <div className="space-y-4">
+      {/* Inputs row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <div className="space-y-1">
-          <div className={UI.sectionTitle}>String s</div>
+          <div className={UI.sectionTitle}>String</div>
           <input
             className={UI.input}
             value={sText}
@@ -213,8 +93,8 @@ export default function SubstringWindowPage() {
               setI(0);
               setPlaying(false);
             }}
+            placeholder="eceba"
           />
-          <div className={UI.hint}>Example: eceba, aaabbcc, abaccc</div>
         </div>
 
         <div className="space-y-1">
@@ -227,164 +107,129 @@ export default function SubstringWindowPage() {
               setI(0);
               setPlaying(false);
             }}
+            placeholder="2"
           />
-          <div className={UI.hint}>We clamp to an integer ≥ 0</div>
-        </div>
-
-        <div className="space-y-1">
-          <div className={UI.sectionTitle}>Playback</div>
-          <div className="flex gap-2 flex-wrap">
-            <button
-              className={UI.btnPrimary}
-              disabled={steps.length === 0 || playing}
-              onClick={() => setPlaying(true)}
-            >
-              Play
-            </button>
-
-            <button
-              className={UI.btnGhost}
-              disabled={!playing}
-              onClick={() => setPlaying(false)}
-            >
-              Pause
-            </button>
-
-            <button
-              className={UI.btnGhost}
-              disabled={steps.length === 0 || safeI === 0}
-              onClick={() => {
-                setPlaying(false);
-                setI((x) => Math.max(0, x - 1));
-              }}
-            >
-              Prev
-            </button>
-
-            <button
-              className={UI.btnGhost}
-              disabled={steps.length === 0 || safeI >= steps.length - 1}
-              onClick={() => {
-                setPlaying(false);
-                setI((x) => Math.min(steps.length - 1, x + 1));
-              }}
-            >
-              Next
-            </button>
-
-            <button
-              className={UI.btnGhost}
-              disabled={steps.length === 0}
-              onClick={() => {
-                setPlaying(false);
-                setI(0);
-              }}
-            >
-              Reset
-            </button>
-          </div>
         </div>
       </div>
 
-      {/* Timeline */}
-      <div className="space-y-2 pt-2">
-        <div className="flex items-center justify-between">
-          <div className={UI.sectionTitle}>Timeline</div>
-          <div className={UI.hint}>
-            {steps.length ? safeI + 1 : 0} / {steps.length}
-          </div>
+      {/* Playback row + Speed */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="flex gap-2 flex-wrap">
+          <button
+            className={UI.btnPrimary}
+            disabled={steps.length === 0 || playing}
+            onClick={() => setPlaying(true)}
+          >
+            Play
+          </button>
+
+          <button
+            className={UI.btnGhost}
+            disabled={!playing}
+            onClick={() => setPlaying(false)}
+          >
+            Pause
+          </button>
+
+          <button
+            className={UI.btnGhost}
+            disabled={steps.length === 0 || safeI === 0}
+            onClick={() => {
+              setPlaying(false);
+              setI((x) => Math.max(0, x - 1));
+            }}
+          >
+            Prev
+          </button>
+
+          <button
+            className={UI.btnGhost}
+            disabled={steps.length === 0 || safeI >= steps.length - 1}
+            onClick={() => {
+              setPlaying(false);
+              setI((x) => Math.min(steps.length - 1, x + 1));
+            }}
+          >
+            Next
+          </button>
+
+          <button
+            className={UI.btnGhost}
+            disabled={steps.length === 0}
+            onClick={() => {
+              setPlaying(false);
+              setI(0);
+            }}
+          >
+            Reset
+          </button>
         </div>
 
-        <input
-          type="range"
-          min={0}
-          max={Math.max(0, steps.length - 1)}
-          value={safeI}
-          onChange={(e) => {
-            setPlaying(false);
-            setI(Number(e.target.value));
-          }}
-          className={UI.range}
-          disabled={steps.length === 0}
+        <SpeedControl
+          value={speedMs}
+          onChange={(val) => setSpeedMs(val)}
         />
       </div>
 
-      {/* Status chips */}
-      <div className="flex flex-wrap gap-3 pt-2">
-        <div className={UI.chip}>
-          Step: <span className="font-semibold">{steps.length ? safeI + 1 : 0}</span> /{" "}
-          <span className="font-semibold">{steps.length}</span>
-        </div>
-        <div className={UI.chip}>
-          l: <span className="font-semibold">{step?.l ?? "-"}</span>
-        </div>
-        <div className={UI.chip}>
-          r: <span className="font-semibold">{step?.r ?? "-"}</span>
-        </div>
-        <div className={UI.chip}>
-          distinct: <span className="font-semibold">{step?.distinct ?? "-"}</span>
-        </div>
-        <div className={UI.chip}>
-          k: <span className="font-semibold">{k}</span>
-        </div>
-      </div>
+      {/* Timeline (full width) */}
+      <TimelineScrubber
+        total={steps.length}
+        current={safeI}
+        onChange={(index) => {
+          setPlaying(false);
+          setI(index);
+        }}
+      />
 
-      {/* Valid/invalid banner */}
+      {/* Status chips */}
       {step && (
-        <div className={`${UI.banner} mt-2`}>
-          <div className="font-medium">{step.valid ? "✅ Valid window" : "❌ Invalid window"}</div>
-          <div className={UI.bannerSub}>
-            distinct = <span className="font-semibold">{step.distinct}</span>{" "}
-            {step.valid ? "≤" : ">"} k = <span className="font-semibold">{k}</span>
-          </div>
+        <div className="flex flex-wrap gap-3 pt-1">
+          <div className={UI.chip}>l: {step.r >= 0 ? step.l : 0}</div>
+          <div className={UI.chip}>r: {step.r}</div>
+          <div className={UI.chip}>distinct: {step.distinct}</div>
+          <div className={UI.chip}>k: {k}</div>
+          <div className={UI.chip}>bestLen: {step.bestLen}</div>
         </div>
       )}
 
-      {/* Note */}
-      <div className={`${UI.note} mt-2`}>
-        <span className="font-medium">Note:</span> {step?.note ?? "—"}
-      </div>
-    </>
+      {/* Note / banner */}
+      {step && (
+        <div className={`${UI.banner} mt-1`}>
+          <div>{step.note}</div>
+        </div>
+      )}
+    </div>
   );
 
-  // ---------- Main visualization (children) ----------
+  // ---------- Main Viz ----------
   const mainViz = (
-    <>
+    <div className="space-y-3">
       <div className={UI.sectionTitle}>String</div>
 
       <div className="relative overflow-x-auto">
-        <div className="relative inline-block" style={{ paddingTop: 44 }}>
-          {/* Window highlight behind cells */}
-          {step && (
+        <div className="relative inline-block" style={{ paddingTop: 54, paddingBottom: 8 }}>
+          {/* window highlight */}
+          {step && step.r >= step.l && step.r >= 0 && (
             <motion.div
               className={UI.windowHighlight}
-              initial={false}
-              animate={{
-                x: baseX + step.l * cellWidth,
-                width: (step.r - step.l + 1) * cellWidth,
-              }}
-              transition={{ type: "spring", stiffness: 260, damping: 30 }}
+              animate={{ x: leftX, width: windowWidth }}
             />
           )}
 
-          {/* Pointer labels */}
-          {step && (
+          {/* pointer labels */}
+          {step && step.r >= 0 && (
             <>
               <motion.div
-                className="absolute top-0 text-xs font-semibold text-white"
-                initial={false}
+                className="absolute top-1 text-xs font-semibold text-white/80"
                 animate={{ x: leftX }}
-                transition={{ type: "spring", stiffness: 260, damping: 30 }}
                 style={{ width: cellWidth }}
               >
                 L
               </motion.div>
 
               <motion.div
-                className="absolute top-0 text-xs font-semibold text-right text-white"
-                initial={false}
+                className="absolute top-1 text-xs font-semibold text-white/80 text-right"
                 animate={{ x: rightX }}
-                transition={{ type: "spring", stiffness: 260, damping: 30 }}
                 style={{ width: cellWidth }}
               >
                 R
@@ -392,94 +237,90 @@ export default function SubstringWindowPage() {
             </>
           )}
 
-          {/* Cells above highlight */}
+          {/* cells */}
           <div className="relative z-10 flex">
             {Array.from(s).map((ch, idx) => {
-              const inWindow = step ? idx >= step.l && idx <= step.r : false;
+              const inWindow =
+                step && step.r >= 0 ? idx >= step.l && idx <= step.r : false;
 
-              const isAdded = step?.charAdded && idx === step.r;
-              const isRemoved = step?.charRemoved && idx === step.l - 1;
+              const isAdded =
+                step?.charAdded && step.r === idx;
 
               const cls = [
-                `h-12 w-[64px] ${UI.cellBase}`,
+                UI.cellBase,
+                "h-12 w-[72px] mx-1",
                 inWindow ? UI.cellActive : UI.cellInactive,
-                isAdded ? UI.cellAdded : "",
-                isRemoved ? UI.cellRemoved : "",
+                isAdded ? "ring-2 ring-white/60" : "",
               ]
                 .filter(Boolean)
                 .join(" ");
 
               return (
-                <div key={idx} className={cls}>
+                <motion.div
+                  key={idx}
+                  animate={{ opacity: step?.r >= 0 ? (inWindow ? 1 : 0.35) : 1 }}
+                  className={cls}
+                >
                   {ch === " " ? "␠" : ch}
-                </div>
+                </motion.div>
               );
             })}
           </div>
         </div>
       </div>
-    </>
-  );
 
-  // ---------- Side panel ----------
-  const side = (
-    <>
-      <div className={UI.sectionTitle}>Frequency Map</div>
-
-      {step ? (
-        freqEntries.length ? (
-          <div className="space-y-2">
-            {freqEntries.map(([ch, count]) => (
-              <div
-                key={ch}
-                className="flex items-center justify-between rounded-xl border border-neutral-700 px-3 py-2 bg-neutral-900/50"
-              >
-                <div className="text-sm font-semibold text-white">
-                  {ch === " " ? "␠ (space)" : `'${ch}'`}
-                </div>
-                <div className="text-sm text-white">
-                  <span className="font-semibold">{count}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-sm text-neutral-300">Window is empty.</div>
-        )
-      ) : (
-        <div className="text-sm text-neutral-300">Enter a string and press Play/Next.</div>
-      )}
-
-      <div className={`${UI.hint} mt-2`}>distinct = number of keys in this map</div>
-    </>
-  );
-
-  // ---------- Footer (best window) ----------
-  const footer = (
-    <div className={`${UI.card} ${UI.cardInner}`}>
-      <div className={UI.sectionTitle}>Best window so far</div>
-      <div className="text-sm text-neutral-200">
-        length: <span className="font-semibold">{step?.bestLen ?? 0}</span> · indices:{" "}
-        <span className="font-semibold">{step ? `${step.bestL}..${step.bestR}` : "-"}</span>
+      {/* Best box */}
+      <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-4">
+        <div className="text-sm font-medium text-white">Best window so far</div>
+        <div className="text-sm text-neutral-300 mt-1">
+          len: <span className="text-white font-semibold">{step?.bestLen ?? 0}</span>
+          {" · "}
+          idx:{" "}
+          <span className="text-white font-semibold">
+            {step ? `${step.bestL}..${step.bestR}` : "-"}
+          </span>
+        </div>
+        <div className="text-sm text-neutral-300 mt-1">
+          substring:{" "}
+          <span className="text-white font-semibold">
+            {bestText ? `"${bestText}"` : "—"}
+          </span>
+        </div>
       </div>
-      <div className="text-sm text-neutral-200">
-        substring: <span className="font-semibold">{bestText ? `"${bestText}"` : "—"}</span>
+    </div>
+  );
+
+  // ---------- Code Panel ----------
+  const side = (
+    <div className="space-y-3">
+      <div className={UI.sectionTitle}>Code</div>
+
+      <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 overflow-hidden">
+        {pattern.codeLines.map((line, idx) => {
+          const active = idx === lineIdx;
+          return (
+            <div
+              key={idx}
+              className={[
+                "px-3 py-2 text-sm font-mono border-b border-neutral-800 last:border-b-0",
+                active ? "bg-white/10 text-white" : "text-neutral-300",
+              ].join(" ")}
+            >
+              <span className="text-neutral-500 mr-3">{idx + 1}</span>
+              {line || " "}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
 
   return (
     <VisualizerShell
-      title="Substring Window Visualizer"
-      subtitle={
-        <>
-          Goal: <span className="font-semibold">Longest substring</span> with{" "}
-          <span className="font-semibold">at most k distinct</span> characters.
-        </>
-      }
+      title={pattern.name}
+      subtitle="Longest substring with at most k distinct characters."
       controls={controls}
       side={side}
-      footer={footer}
     >
       {mainViz}
     </VisualizerShell>

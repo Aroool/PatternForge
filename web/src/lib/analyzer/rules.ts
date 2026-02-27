@@ -94,39 +94,39 @@ export const PATTERNS: PatternDef[] = [
   },
   
   {
-  id: "linked_list_simulation",
-  name: "Linked List / Simulation",
-  maxScoreHint: 18,
-  rules: [
-    {
-      id: "ll_keyword",
-      type: "regex",
-      value: "linked list|node|next pointer",
-      weight: 7,
-      reason: "Mentions linked list or node → traversal of node structure required.",
+    id: "linked_list_simulation",
+    name: "Linked List / Simulation",
+    maxScoreHint: 18,
+    rules: [
+        {
+        id: "ll_keyword",
+        type: "regex",
+        value: "linked list|node|next pointer",
+        weight: 7,
+        reason: "Mentions linked list or node → traversal of node structure required.",
+        },
+        {
+        id: "ll_reverse",
+        type: "regex",
+        value: "reverse order|reverse the list",
+        weight: 4,
+        reason: "Reverse order in linked list → typical pointer manipulation.",
+        },
+        {
+        id: "ll_carry",
+        type: "regex",
+        value: "carry|digit|sum of two numbers",
+        weight: 5,
+        reason: "Digit-by-digit addition with carry → simulation over linked structure.",
+        },
+        {
+        id: "ll_merge",
+        type: "regex",
+        value: "merge two lists|merge k lists",
+        weight: 5,
+        reason: "Merging linked lists → pointer simulation pattern.",
+        },
+    ],
     },
-    {
-      id: "ll_reverse",
-      type: "regex",
-      value: "reverse order|reverse the list",
-      weight: 4,
-      reason: "Reverse order in linked list → typical pointer manipulation.",
-    },
-    {
-      id: "ll_carry",
-      type: "regex",
-      value: "carry|digit|sum of two numbers",
-      weight: 5,
-      reason: "Digit-by-digit addition with carry → simulation over linked structure.",
-    },
-    {
-      id: "ll_merge",
-      type: "regex",
-      value: "merge two lists|merge k lists",
-      weight: 5,
-      reason: "Merging linked lists → pointer simulation pattern.",
-    },
-  ],
-},
 
 ];

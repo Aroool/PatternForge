@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import Navbar from "@/lib/ui/Navbar";
 import { UI } from "@/lib/ui/styles";
 import { analyzeProblem } from "@/lib/analyzer/analyze";
+import ParticleField from "@/lib/ui/ParticleField";
 
 type AnalyzeResult = {
   pattern: string;
@@ -65,6 +66,13 @@ export default function Home() {
   return (
     <main className={UI.page}>
       <Navbar />
+
+      {/* Antigravity-style particles background */}
+<div className="fixed inset-0 -z-10 pointer-events-none">
+  <ParticleField className="absolute inset-0" density={1} />
+  {/* keep your glow layer too if you want */}
+  <div className="absolute inset-0 bg-black/70" />
+</div>
 
       {/* HERO */}
       <div className={UI.container}>

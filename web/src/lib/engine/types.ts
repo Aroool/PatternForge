@@ -13,7 +13,7 @@ export type PatternDefinition<TStep extends BaseStep> = {
   codeLines: string[];
 
   // Build animation steps
-  buildSteps: (...args: any[]) => TStep[];
+  buildSteps: (...args: unknown[]) => TStep[];
 
   // Which line to highlight for a step
   activeLine: (step: TStep) => number;
